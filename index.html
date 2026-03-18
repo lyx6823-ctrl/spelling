@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聽音拼字挑戰</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f0f8ff; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .container { 
+            background-color: white; 
+            padding: 40px; 
+            border-radius: 15px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+            text-align: center; 
+            width: 450px; 
+        }
+        h1 { color: #333; margin-bottom: 5px;}
+        .instruction { color: #666; margin-bottom: 20px;}
+        .meaning { 
+            font-size: 1.4em; 
+            margin: 20px 0; 
+            color: #2c3e50; 
+            font-weight: bold; 
+        }
+        input[type="text"] { 
+            font-size: 1.2em; 
+            padding: 10px; 
+            width: 80%; 
+            border: 2px solid #ccc; 
+            border-radius: 5px; 
+            margin-bottom: 20px; 
+            text-align: center; 
+            font-family: monospace;
+        }
+        button { 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            font-size: 1.1em; 
+            cursor: pointer; 
+            margin: 5px; 
+            transition: background-color 0.3s;
+        }
+        .audio-btn { background-color: #008CBA; }
+        .audio-btn:hover { background-color: #007B9E; }
+        .submit-btn { background-color: #4CAF50; }
+        .submit-btn:hover { background-color: #45a049; }
+        .next-btn { background-color: #ff9800; }
+        .next-btn:hover { background-color: #e68a00; }
+        .feedback { 
+            font-size: 1.2em; 
+            font-weight: bold; 
+            margin-top: 20px; 
+            min-height: 28px; 
+        }
+        .correct { color: #4CAF50; }
+        .incorrect { color: #f44336; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>聽音拼字挑戰</h1>
+        <div class="instruction">請聽發音並參考中文，拼出正確的單字</div>
+        
+        <div class="meaning" id="chinese-meaning">載入中...</div>
+        <button class="audio-btn" onclick="playAudio()">🔊 播放發音</button>
+        <br><br>
+        
+        <input type="text" id="word-input" placeholder="請輸入英文" autocomplete="off" onkeypress="handleKeyPress(event)">
+        <br>
+        <button class="submit-btn" onclick="checkAnswer()">送出答案</button>
+        <button class="next-btn" onclick="nextWord()">下一題</button>
+        
+        <div class="feedback" id="feedback-message"></div>
+    </div>
+
+   <script>
+    let wordList = [];
+    let currentIndex = 0;
+    
+    const sheetUrl = "https://script.google.com/macros/s/AKfycbx53CglGLU2gTAELieKs1tCuoNv9NoV3EvNjqWRccZDIicxOZs8GIHee09JuC3Vt600_A/exec"; 
+
+    // 洗牌函數
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
+
+    // 從 Google Sheets 讀取資料
+    async function fetchWords() {
+        document.getElementById('chinese-meaning').innerText = "連線讀取題庫中，請稍候...";
+        try {
+            const response = await fetch(sheetUrl);
+            wordList = await response.json();
+            
+            if(wordList.length === 0) {
+                document.getElementById('chinese-meaning').innerText = "題庫是空的，請在試算表輸入單字！";
+                return;
+            }
+            
+            shuffleArray(wordList); // 讀取完馬上洗牌
+            loadWord(); // 載入第一題
+        } catch (error) {
+            document.getElementById('chinese-meaning').innerText = "讀取失敗，請確認 Apps Script 網址與權限設定。";
+            console.error(error);
+        }
+    }
+
+    function loadWord() {
+        document.getElementById('chinese-meaning').innerText = wordList[currentIndex].meaning;
+        document.getElementById('word-input').value = '';
+        document.getElementById('feedback-message').innerText = '';
+        document.getElementById('word-input').focus();
+    }
+
+    function playAudio() {
+        const word = wordList[currentIndex].word;
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US'; 
+        utterance.rate = 0.8; 
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function checkAnswer() {
+        const userInput = document.getElementById('word-input').value.trim().toLowerCase();
+        const correctAnswer = wordList[currentIndex].word.toLowerCase();
+        const feedback = document.getElementById('feedback-message');
+
+        if (userInput === '') {
+            feedback.innerText = "請輸入單字！";
+            feedback.className = "feedback incorrect";
+            return;
+        }
+
+        if (userInput === correctAnswer) {
+            feedback.innerText = "答對了！🎉";
+            feedback.className = "feedback correct";
+        } else {
+            feedback.innerText = `答錯了！正確答案是：${correctAnswer}`;
+            feedback.className = "feedback incorrect";
+        }
+    }
+
+    function nextWord() {
+        currentIndex++;
+        if (currentIndex >= wordList.length) {
+            currentIndex = 0;
+            shuffleArray(wordList); 
+            alert("恭喜您完成了一輪練習！我們已經重新洗牌，馬上開始下一輪！");
+        }
+        loadWord();
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') {
+            checkAnswer();
+        }
+    }
+
+    // 網頁開啟時，第一件事改成去 Google Sheets 抓資料
+    window.onload = fetchWords;
+</script>
+</body>
+</html>
